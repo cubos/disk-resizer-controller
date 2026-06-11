@@ -114,7 +114,7 @@ export async function checkAndResize() {
 				for (const dfLine of dfResult.split("\n")) {
 					const [_device, capacity, used, _free, _percent, mountPath] = dfLine.split(/\s+/u);
 
-					if (mountPath && (mount.mountPath === mountPath || mount.mountPath.startsWith(mountPath + "/"))) {
+					if (mountPath && (mount.mountPath === mountPath || mount.mountPath.startsWith(mountPath === "/" ? "/" : mountPath + "/"))) {
 						const capacityBytes = parseInt(capacity, 10) * 1024;
 
 						usedBytes = parseInt(used, 10) * 1024;
@@ -155,10 +155,15 @@ export async function checkAndResize() {
 
 		if (process.env.SLACK_WEBHOOK_URL) {
 			try {
-				const errorMessage = err instanceof Error ? err.stack || err.message : String(err);
-				await axios.post(process.env.SLACK_WEBHOOK_URL, {
-					text: `*[${process.env.CLUSTER_NAME}]* Falha crítica no disk-resizer-controller:\n\`\`\`${errorMessage}\`\`\``,
-				});
+				const errorMessageRaw = err instanceof Error ? err.stack || err.message : String(err);
+				const errorMessage = errorMessageRaw.length > 3500 ? `${errorMessageRaw.slice(0, 3500)}\n…(truncated)` : errorMessageRaw;
+				await axios.post(
+					process.env.SLACK_WEBHOOK_URL,
+					{
+						text: `*[${process.env.CLUSTER_NAME ?? "unknown-cluster"}]* Falha crítica no disk-resizer-controller:\n\`\`\`${errorMessage}\`\`\``,
+					},
+					{ timeout: 5000 },
+				);
 			} catch (slackErr) {
 				console.error("Failed to send Slack notification:", slackErr);
 			}
