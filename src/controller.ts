@@ -26,7 +26,7 @@ controller.attachClusterPolicyRules([
 	{
 		apiGroups: [""],
 		resources: ["pods/exec"],
-		verbs: ["get"],
+		verbs: ["create", "get"],
 	},
 ]);
 

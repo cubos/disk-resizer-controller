@@ -71,22 +71,29 @@ export async function checkAndResize() {
 					continue;
 				}
 
-				const container = pod.spec.containers.find(c => c.volumeMounts?.some(mount => mount.name === volume.name));
+				const mounts: { container: typeof pod.spec.containers[0]; mount: NonNullable<typeof pod.spec.containers[0]["volumeMounts"]>[0] }[] = [];
 
-				if (!container) {
+				for (const c of pod.spec.containers) {
+					const containerMounts = c.volumeMounts?.filter(m => m.name === volume.name) ?? [];
+					for (const m of containerMounts) {
+						mounts.push({ container: c, mount: m });
+					}
+				}
+
+				if (mounts.length === 0) {
 					continue;
 				}
 
-				if (!pod.status.containerStatuses?.find(status => status.name === container.name)?.ready) {
-					console.log(`  Pod ${pod.metadata.name} is not ready. Skipped.`);
+				const readyMount = mounts.find(({ container }) =>
+					pod.status.containerStatuses?.find(status => status.name === container.name)?.ready
+				);
+
+				if (!readyMount) {
+					console.log(`  Pod ${pod.metadata.name} has no ready container with this volume. Skipped.`);
 					continue;
 				}
 
-				const mount = container.volumeMounts?.find(m => m.name === volume.name);
-
-				if (!mount) {
-					continue;
-				}
+				const { container, mount } = readyMount;
 
 				let dfResult;
 
@@ -107,7 +114,7 @@ export async function checkAndResize() {
 				for (const dfLine of dfResult.split("\n")) {
 					const [_device, capacity, used, _free, _percent, mountPath] = dfLine.split(/\s+/u);
 
-					if (mountPath === mount.mountPath) {
+					if (mountPath && (mount.mountPath === mountPath || (mountPath !== "/" && mount.mountPath.startsWith(mountPath + "/")))) {
 						const capacityBytes = parseInt(capacity, 10) * 1024;
 
 						usedBytes = parseInt(used, 10) * 1024;
@@ -146,12 +153,30 @@ export async function checkAndResize() {
 	} catch (err) {
 		console.error(err);
 
+		if (process.env.SLACK_WEBHOOK_URL) {
+			try {
+				const errorMessageRaw = err instanceof Error ? err.stack || err.message : String(err);
+				const errorMessage = errorMessageRaw.length > 3500 ? `${errorMessageRaw.slice(0, 3500)}\n…(truncated)` : errorMessageRaw;
+				await axios.post(
+					process.env.SLACK_WEBHOOK_URL,
+					{
+						text: `*[${process.env.CLUSTER_NAME ?? "unknown-cluster"}]* Falha crítica no disk-resizer-controller:\n\`\`\`${errorMessage}\`\`\``,
+					},
+					{ timeout: 5000 },
+				);
+			} catch (slackErr) {
+				console.error("Failed to send Slack notification:", slackErr);
+			}
+		}
+
 		if (hasSentry) {
 			Sentry.captureException(err);
 
 			Sentry.close(10000).finally(() => {
 				process.exit(1);
 			});
+		} else {
+			process.exit(1);
 		}
 	}
 }
