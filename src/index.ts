@@ -114,7 +114,7 @@ export async function checkAndResize() {
 				for (const dfLine of dfResult.split("\n")) {
 					const [_device, capacity, used, _free, _percent, mountPath] = dfLine.split(/\s+/u);
 
-					if (mountPath && (mount.mountPath === mountPath || mount.mountPath.startsWith(mountPath === "/" ? "/" : mountPath + "/"))) {
+					if (mountPath && (mount.mountPath === mountPath || (mountPath !== "/" && mount.mountPath.startsWith(mountPath + "/")))) {
 						const capacityBytes = parseInt(capacity, 10) * 1024;
 
 						usedBytes = parseInt(used, 10) * 1024;
