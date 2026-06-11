@@ -153,12 +153,25 @@ export async function checkAndResize() {
 	} catch (err) {
 		console.error(err);
 
+		if (process.env.SLACK_WEBHOOK_URL) {
+			try {
+				const errorMessage = err instanceof Error ? err.stack || err.message : String(err);
+				await axios.post(process.env.SLACK_WEBHOOK_URL, {
+					text: `*[${process.env.CLUSTER_NAME}]* Falha crítica no disk-resizer-controller:\n\`\`\`${errorMessage}\`\`\``,
+				});
+			} catch (slackErr) {
+				console.error("Failed to send Slack notification:", slackErr);
+			}
+		}
+
 		if (hasSentry) {
 			Sentry.captureException(err);
 
 			Sentry.close(10000).finally(() => {
 				process.exit(1);
 			});
+		} else {
+			process.exit(1);
 		}
 	}
 }
