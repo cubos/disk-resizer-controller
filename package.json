@@ -14,7 +14,7 @@
 		"build:chart": "node --no-warnings --loader ts-node/esm src/controller.ts chart helm/Chart.yaml"
 	},
 	"dependencies": {
-		"@sentry/node": "^7.82.0",
+		"@sentry/node": "^10.0.0",
 		"axios": "^1.6.2",
 		"axios-retry": "^4.0.0",
 		"kubesdk": "^0.0.0-dev.20230803225425"
