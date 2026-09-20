@@ -1,4 +1,4 @@
-FROM node:20-alpine AS build
+FROM node:24-alpine AS build
 ENV NODE_ENV production
 WORKDIR /app
 COPY package.json package-lock.json ./
@@ -6,7 +6,7 @@ RUN npm ci --include=dev
 COPY . ./
 RUN npx tsc
 
-FROM node:20-alpine
+FROM node:24-alpine
 ENV NODE_ENV production
 WORKDIR /app
 COPY package.json package-lock.json ./
